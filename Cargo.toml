@@ -1,0 +1,9 @@
+[package]
+name = "nccl-tests"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+candle-core = { version = "0.8", features = ["cuda"] }
+#cudarc = { version = "0.13", features = ["nccl"]}
