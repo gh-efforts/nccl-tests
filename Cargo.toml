@@ -6,4 +6,4 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 candle-core = { version = "0.8", features = ["cuda"] }
-#cudarc = { version = "0.13", features = ["nccl"]}
+cudarc = { version = "0.13", features = ["nccl"]}
