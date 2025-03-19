@@ -12,7 +12,6 @@ fn t1() -> Result<()>{
     let core_1 = Device::Cuda(core_1);
 
     let t1x8 = Tensor::arange(0f32, 64f32, &core_0)?;
-    t1x8.device().synchronize()?;
 
     let t = Instant::now();
     let t1x8 = t1x8.to_device(&core_1)?;
