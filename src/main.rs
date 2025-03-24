@@ -56,10 +56,10 @@ fn t1<S: Into<Shape> + Clone>(shape: S) -> Result<()> {
     println!("same node, GPU0 -> CPU mem -> GPU1, use {:?}", elapsed);
 
     let a_0 = a.to_device(&core_0)?;
-    let x_0 = x_0.add(&a_0)?;
+    // let x_0 = x_0.add(&a_0)?;
 
-    println!("{:?}", new_x_0);
-    println!("{:?}", x_0);
+    println!("{}", new_x_0);
+    println!("{}", x_0);
     Ok(())
 }
 
@@ -143,5 +143,5 @@ fn t3(n: f32) -> Result<()> {
 }
 
 fn main() {
-    t1((8, 1)).unwrap();
+    t1((2, 4)).unwrap();
 }
