@@ -81,12 +81,7 @@ fn t3(n: f32) -> Result<()> {
     let core_0_raw = core_0.cuda_device();
     let core_1_raw = core_1.cuda_device();
 
-    println!("before init rank 0");
-    let comm = cudarc::nccl::Comm::from_rank(core_0_raw, 0, 2, id).unwrap();
-    println!("after init rank 0");
-
     let core_0 = Device::Cuda(core_0);
-
     let x = Tensor::arange(0f32, n, &core_0)?;
     let x_count = x.elem_count();
 
@@ -106,6 +101,11 @@ fn t3(n: f32) -> Result<()> {
             Result::<_, anyhow::Error>::Ok(())
         }
     });
+
+    println!("before init rank 0");
+    let comm = cudarc::nccl::Comm::from_rank(core_0_raw, 0, 2, id).unwrap();
+    println!("after init rank 0");
+
     let (data, layout) = x.storage_and_layout();
 
     let s = match &(*data) {
