@@ -93,9 +93,9 @@ fn t3(n: f32) -> Result<()> {
                 Ok(comm) => comm,
                 Err(e) => {
                     eprintln!("{:?}", e);
-                    panic!(e);
+                    panic!("{:?}", e);
                 }
-            }
+            };
 
             let core_1 = Device::Cuda(core_1);
             let mut op = TensorCopy { comm, from: 0 };
