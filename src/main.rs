@@ -144,12 +144,17 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 fn main() {
     t1((2, 4), 0, 1).unwrap();
     t1((2048, 4096), 0, 1).unwrap();
+    t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
+
     t1((2, 4), 0, 7).unwrap();
     t1((2048, 4096), 0, 7).unwrap();
-
+    t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
     t2((2, 4), 0, 1).unwrap();
     t2((2048, 4096), 0, 1).unwrap();
+    t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
+
     t2((2, 4), 0, 7).unwrap();
     t2((2048, 4096), 0, 7).unwrap();
+    t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 }
