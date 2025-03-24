@@ -88,6 +88,7 @@ fn t3(n: f32) -> Result<()> {
 
     let h = std::thread::spawn({
         move || {
+            std::thread::sleep(std::time::Duration::from_secs(3));
             let res = cudarc::nccl::Comm::from_rank(core_1_raw, 1, 2, id);
             let comm = match res {
                 Ok(comm) => comm,
