@@ -56,12 +56,11 @@ fn t1<S: Into<Shape> + Clone>(shape: S) -> Result<()> {
     println!("same node, GPU0 -> CPU mem -> GPU1, use {:?}", elapsed);
 
     let a_0 = a.to_device(&core_0)?;
-    let x_0 = x_0.add(&a_0)?;
+    // let x_0 = x_0.add(&a_0)?;
 
     let new_x_0 = new_x_0.to_string();
     let x_0 = x_0.to_string();
     ensure!(new_x_0 == x_0);
-    println!("{}", new_x_0);
     Ok(())
 }
 
