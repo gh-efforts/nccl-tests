@@ -6,6 +6,7 @@ use candle_core::{
 use cudarc::nccl::{Comm, Id};
 use std::time::Instant;
 use candle_core::cuda::CudaStorageSlice;
+use cudarc::nccl::result::NcclError;
 
 struct TensorCopy {
     comm: Comm,
@@ -87,7 +88,14 @@ fn t3(n: f32) -> Result<()> {
 
     let h = std::thread::spawn({
         move || {
-            let comm = cudarc::nccl::Comm::from_rank(core_1_raw, 1, 2, id).unwrap();
+            let res = cudarc::nccl::Comm::from_rank(core_1_raw, 1, 2, id);
+            match res {
+                Ok(comm) => comm,
+                Err(e) => {
+                    eprintln!("{:?}", e);
+                    panic!(e);
+                }
+            }
 
             let core_1 = Device::Cuda(core_1);
             let mut op = TensorCopy { comm, from: 0 };
