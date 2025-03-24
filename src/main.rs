@@ -94,7 +94,9 @@ fn t3(n: f32) -> Result<()> {
             let core_1 = Device::Cuda(core_1);
             let mut op = TensorCopy { comm, from: 0 };
             let t = Tensor::zeros((x_count, 1), DType::F32, &core_1)?;
+            println!("wait recv");
             t.inplace_op1(&mut op)?;
+            println!("wait sync");
             t.device().synchronize()?;
 
             println!("{}", t);
@@ -109,9 +111,12 @@ fn t3(n: f32) -> Result<()> {
     };
 
     let data = s.as_cuda_slice::<f32>()?;
+
+    println!("before send");
     comm
         .send(data, 1)
         .map_err(|e| anyhow!("{:?}", e))?;
+    println!("after send");
 
     h.join().unwrap().unwrap();
     Ok(())
