@@ -92,7 +92,7 @@ fn t3(n: f32) -> Result<()> {
             let comm = match res {
                 Ok(comm) => comm,
                 Err(e) => {
-                    eprintln!("{:?}", e);
+                    eprintln!("{:?}", e.0);
                     panic!("{:?}", e);
                 }
             };
