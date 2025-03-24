@@ -77,18 +77,17 @@ fn t3(n: f32) -> Result<()> {
     let id = Id::new().unwrap();
 
     let core_0 = CudaDevice::new(0)?;
-    let core_1 = CudaDevice::new(1)?;
-
     let core_0_raw = core_0.cuda_device();
-    let core_1_raw = core_1.cuda_device();
-
     let core_0 = Device::Cuda(core_0);
+
     let x = Tensor::arange(0f32, n, &core_0)?;
     let x_count = x.elem_count();
 
     let h = std::thread::spawn({
         move || {
-            std::thread::sleep(std::time::Duration::from_secs(3));
+            let core_1 = CudaDevice::new(1)?;
+            let core_1_raw = core_1.cuda_device();
+
             let res = cudarc::nccl::Comm::from_rank(core_1_raw, 1, 2, id);
             let comm = match res {
                 Ok(comm) => comm,
