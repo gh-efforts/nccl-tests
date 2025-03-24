@@ -41,7 +41,7 @@ fn t1<S: Into<Shape> + Clone>(shape: S) -> Result<()> {
     let core_0 = Device::Cuda(core_0);
     let core_1 = Device::Cuda(core_1);
 
-    let x_0 = Tensor::rand::<_, f32>(f32::MIN, f32::MAX, shape.clone(), &core_0)?;
+    let x_0 = Tensor::rand::<_, f32>(0f32, 100f32, shape.clone(), &core_0)?;
     x_0.device().synchronize()?;
 
     let a = Tensor::full(1f32, shape, &core_1)?;
@@ -56,7 +56,7 @@ fn t1<S: Into<Shape> + Clone>(shape: S) -> Result<()> {
     println!("same node, GPU0 -> CPU mem -> GPU1, use {:?}", elapsed);
 
     let a_0 = a.to_device(&core_0)?;
-    let x_0 = x_0.add(&a_0)?;
+    let x_0 = x_0.add(&a)?;
 
     new_x_0.eq(&x_0)?;
     Ok(())
@@ -142,5 +142,5 @@ fn t3(n: f32) -> Result<()> {
 }
 
 fn main() {
-    t1((2, 3)).unwrap();
+    t1((2, 4)).unwrap();
 }
