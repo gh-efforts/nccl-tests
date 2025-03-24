@@ -89,7 +89,7 @@ fn t3(n: f32) -> Result<()> {
     let h = std::thread::spawn({
         move || {
             let res = cudarc::nccl::Comm::from_rank(core_1_raw, 1, 2, id);
-            match res {
+            let comm = match res {
                 Ok(comm) => comm,
                 Err(e) => {
                     eprintln!("{:?}", e);
