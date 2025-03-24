@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Result};
 use candle_core::backend::BackendDevice;
-use candle_core::{
-    CpuStorage, CudaDevice, CudaStorage, DType, Device, InplaceOp1, Layout, Storage, Tensor,
-};
+use candle_core::{CpuStorage, CudaDevice, CudaStorage, DType, Device, InplaceOp1, Layout, Shape, Storage, Tensor};
 use cudarc::nccl::{Comm, Id};
 use std::time::Instant;
 use candle_core::cuda::CudaStorageSlice;
@@ -36,21 +34,31 @@ impl InplaceOp1 for TensorCopy {
 }
 
 // same node, same numa, GPU0 -> CPU mem -> GPU1
-fn t1(n: f32) -> Result<()> {
+fn t1<S: Into<Shape> + Clone>(shape: S) -> Result<()> {
     let core_0 = CudaDevice::new(0)?;
     let core_1 = CudaDevice::new(1)?;
 
     let core_0 = Device::Cuda(core_0);
     let core_1 = Device::Cuda(core_1);
 
-    let x = Tensor::arange(0f32, n, &core_0)?;
-    x.device().synchronize()?;
+    let x_0 = Tensor::rand::<_, f32>(f32::MIN, f32::MAX, shape.clone(), &core_0)?;
+    x_0.device().synchronize()?;
+
+    let a = Tensor::full(1f32, shape, &core_1)?;
+    a.device().synchronize()?;
 
     let t = Instant::now();
-    let x = x.to_device(&core_1)?;
-    x.device().synchronize()?;
+    let x_1 = x_0.to_device(&core_1)?;
+    let x_1 = x_1.add(&a)?;
+    let new_x_0 = x_1.to_device(&core_0)?;
+    new_x_0.device().synchronize()?;
+    let elapsed = t.elapsed();
+    println!("same node, GPU0 -> CPU mem -> GPU1, use {:?}", elapsed);
 
-    println!("same node, GPU0 -> CPU mem -> GPU1, use {:?}", t.elapsed());
+    let a_0 = a.to_device(&core_0)?;
+    let x_0 = x_0.add(&a_0)?;
+
+    new_x_0.eq(&x_0)?;
     Ok(())
 }
 
@@ -134,5 +142,5 @@ fn t3(n: f32) -> Result<()> {
 }
 
 fn main() {
-    t3(10f32).unwrap();
+    t1((2, 3)).unwrap();
 }
