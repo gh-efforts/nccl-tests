@@ -143,5 +143,5 @@ fn t3(n: f32) -> Result<()> {
 }
 
 fn main() {
-    t1((2, 4)).unwrap();
+    t1((8, 1)).unwrap();
 }
