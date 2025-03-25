@@ -143,16 +143,11 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
     Ok(())
 }
 
-fn t3<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8) -> Result<()> {
-    let mut id_arr = [0i8; 128];
-
-    let id = std::fs::read(format!("id{}.dat", id_idx))?;
-    assert_eq!(id.len(), 128);
-    for (i, &x) in id.iter().enumerate() {
-        id_arr[i] = x as i8;
-    }
-
-    let id = Id::uninit(id_arr);
+fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8) -> Result<()> {
+    let id = Id::new().unwrap();
+    let id = id.internal();
+    let id_bytes = id.as_bytes();
+    std::fs::write(format!("id{}.dat", id_idx), id_bytes).unwrap();
     println!("id: {:?}", id);
 
     let core_0 = CudaDevice::new(core0)?;
@@ -196,7 +191,7 @@ fn t3<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8
     Ok(())
 }
 
-fn t3_daemon<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_idx: u8) -> Result<()> {
+fn t3_mirror<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_idx: u8) -> Result<()> {
     let mut id_arr = [0i8; 128];
 
     let id = std::fs::read(format!("id{}.dat", id_idx))?;
@@ -243,13 +238,6 @@ fn t3_daemon<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_
     }
 }
 
-fn create_nccl_id(idx: u8) {
-    let id = Id::new().unwrap();
-    let id = id.internal();
-    let id_bytes = id.as_bytes();
-    std::fs::write(format!("id{}.dat", idx), id_bytes).unwrap();
-}
-
 fn main() {
     let mut args = args();
     args.next();
@@ -272,19 +260,14 @@ fn main() {
             // t2((2048, 4096), 0, 7).unwrap();
             // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
-            t3((2, 4), 3, 0).unwrap();
+            t3_master((2, 4), 3, 0).unwrap();
             // t3((2048, 4096), 3, 1).unwrap();
             // t3((2048 * 8, 4096 * 8), 3, 2).unwrap();
         }
-        Some("genid") => {
-            create_nccl_id(0);
-            create_nccl_id(1);
-            create_nccl_id(2);
-        }
-        Some("daemon") => {
+        Some("mirror") => {
             std::thread::scope(|s| {
                 s.spawn(|| {
-                    t3_daemon((2, 4), 0, 0).unwrap();
+                    t3_mirror((2, 4), 0, 0).unwrap();
                 });
                 // s.spawn(|| {
                 //     t3_daemon((2048, 4096), 1, 1).unwrap();
