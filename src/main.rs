@@ -145,8 +145,8 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
 fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8) -> Result<()> {
     let id = Id::new().unwrap();
-    let id = id.internal();
-    let id_bytes = id.as_bytes();
+    let id_bytes = id.internal();
+    let id_bytes = id_bytes.as_bytes();
     std::fs::write(format!("id{}.dat", id_idx), id_bytes).unwrap();
     println!("id: {:?}", id);
 
