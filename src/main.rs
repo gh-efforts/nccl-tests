@@ -223,6 +223,15 @@ fn t3_mirror(core1: usize) -> Result<()> {
 
         let core_1 = CudaDevice::new(core1)?;
         let core_1_raw = core_1.cuda_device();
+
+        let core_1 = Device::Cuda(core_1);
+
+        let a = Tensor::full(1f32, shape.clone(), &core_1)?;
+        a.device().synchronize()?;
+
+        let t = Tensor::zeros(shape, DType::F32, &core_1)?;
+        t.device().synchronize()?;
+
         let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
             Ok(comm) => comm,
             Err(e) => {
@@ -230,14 +239,8 @@ fn t3_mirror(core1: usize) -> Result<()> {
                 panic!("nccl err");
             }
         };
-        let core_1 = Device::Cuda(core_1);
-
-        let a = Tensor::full(1f32, shape.clone(), &core_1)?;
-        a.device().synchronize()?;
 
         let mut op = TensorCopy { comm: &comm, from: 0 };
-        let t = Tensor::zeros(shape, DType::F32, &core_1)?;
-        t.device().synchronize()?;
 
         t.inplace_op1(&mut op)?;
         let out = t.add(&a)?;
