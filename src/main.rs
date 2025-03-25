@@ -7,6 +7,7 @@ use cudarc::nccl::result::{NcclError, NcclStatus};
 use cudarc::nccl::{Comm, Id};
 use std::sync::Arc;
 use std::time::Instant;
+use zerocopy::IntoBytes;
 
 struct TensorCopy<'a> {
     comm: &'a Comm,
@@ -146,6 +147,7 @@ fn t3<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8
     let mut id_arr = [0i8; 128];
 
     let id = std::fs::read(format!("id{}.dat", id_idx))?;
+    assert_eq!(id.len(), 128);
     for (i, &x) in id.iter().enumerate() {
         id_arr[i] = x as i8;
     }
@@ -198,6 +200,7 @@ fn t3_daemon<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_
     let mut id_arr = [0i8; 128];
 
     let id = std::fs::read(format!("id{}.dat", id_idx))?;
+    assert_eq!(id.len(), 128);
     for (i, &x) in id.iter().enumerate() {
         id_arr[i] = x as i8;
     }
@@ -243,7 +246,7 @@ fn t3_daemon<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_
 fn create_nccl_id(idx: u8) {
     let id = Id::new().unwrap();
     let id = id.internal();
-    let id_bytes = id.iter().map(|&v| v as u8).collect::<Vec<_>>();
+    let id_bytes = id.as_bytes();
     std::fs::write(format!("id{}.dat", idx), id_bytes).unwrap();
 }
 
