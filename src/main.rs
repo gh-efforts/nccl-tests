@@ -186,10 +186,13 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
         _ => unreachable!(),
     };
     let data = s.as_cuda_slice::<f32>()?;
+    println!("before send");
     comm
         .send(data, 1)
         .map_err(|e| anyhow!("{:?}", e))?;
+    println!("after send");
     recv_t.inplace_op1(&mut op)?;
+    println!("after recv");
     recv_t.device().synchronize()?;
     let elapsed = t.elapsed();
 
