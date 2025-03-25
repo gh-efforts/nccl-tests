@@ -161,7 +161,7 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     let core_0 = CudaDevice::new(core0)?;
     let core_0_raw = core_0.cuda_device();
     let core_0 = Device::Cuda(core_0);
-    println!("before comm init");
+
     let comm = match Comm::from_rank(core_0_raw, 0, 2, id) {
         Ok(comm) => comm,
         Err(e) => {
@@ -170,7 +170,6 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
         }
     };
 
-    println!("after comm init");
     let mut op = TensorCopy { comm: &comm, from: 1 };
 
     let x = Tensor::rand::<_, f32>(0f32, 100f32, shape.clone(), &core_0)?;
@@ -186,15 +185,11 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
         _ => unreachable!(),
     };
     let data = s.as_cuda_slice::<f32>()?;
-    println!("before send");
     comm
         .send(data, 1)
         .map_err(|e| anyhow!("{:?}", e))?;
-    println!("after send");
     recv_t.inplace_op1(&mut op)?;
-    println!("after recv");
-    // recv_t.device().synchronize()?;
-    // println!("after sync");
+    recv_t.device().synchronize()?;
     let elapsed = t.elapsed();
 
     let a = Tensor::full(1f32, shape, &core_0)?;
@@ -238,8 +233,6 @@ fn t3_mirror(core1: usize) -> Result<()> {
         let t = Tensor::zeros(shape, DType::F32, &core_1)?;
         t.device().synchronize()?;
 
-        println!("before comm init");
-
         let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
             Ok(comm) => comm,
             Err(e) => {
@@ -247,23 +240,22 @@ fn t3_mirror(core1: usize) -> Result<()> {
                 panic!("nccl err");
             }
         };
-        println!("after comm init");
 
         let mut op = TensorCopy { comm: &comm, from: 0 };
 
         t.inplace_op1(&mut op)?;
         let out = t.add(&a)?;
-        out.device().synchronize()?;
         let (data, _) = out.storage_and_layout();
         let s = match &(*data) {
             Storage::Cuda(s) => s,
             _ => unreachable!(),
         };
+
         let data = s.as_cuda_slice::<f32>()?;
-        println!("before comm send");
+
         comm.send(data, 0)
             .map_err(|e| anyhow!("{:?}", e))?;
-        println!("after comm send");
+
         comm.device().synchronize()?;
     }
 }
