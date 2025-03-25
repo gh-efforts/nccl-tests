@@ -149,7 +149,6 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     let id = Id::new().unwrap();
     let id_bytes = id.internal();
     let id_bytes = id_bytes.as_bytes();
-    println!("id: {:?}", id);
 
     let mut stream = TcpStream::connect(mirror_addr).unwrap();
     stream.write_all(id_bytes)?;
