@@ -161,6 +161,7 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     let core_0 = CudaDevice::new(core0)?;
     let core_0_raw = core_0.cuda_device();
     let core_0 = Device::Cuda(core_0);
+    println!("before comm init");
     let comm = match Comm::from_rank(core_0_raw, 0, 2, id) {
         Ok(comm) => comm,
         Err(e) => {
@@ -169,6 +170,7 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
         }
     };
 
+    println!("after comm init");
     let mut op = TensorCopy { comm: &comm, from: 1 };
 
     let x = Tensor::rand::<_, f32>(0f32, 100f32, shape.clone(), &core_0)?;
@@ -232,6 +234,8 @@ fn t3_mirror(core1: usize) -> Result<()> {
         let t = Tensor::zeros(shape, DType::F32, &core_1)?;
         t.device().synchronize()?;
 
+        println!("before comm init");
+
         let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
             Ok(comm) => comm,
             Err(e) => {
@@ -239,6 +243,7 @@ fn t3_mirror(core1: usize) -> Result<()> {
                 panic!("nccl err");
             }
         };
+        println!("after comm init");
 
         let mut op = TensorCopy { comm: &comm, from: 0 };
 
