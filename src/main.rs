@@ -205,7 +205,13 @@ fn t3_daemon<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_
 
     let core_1 = CudaDevice::new(core1)?;
     let core_1_raw = core_1.cuda_device();
-    let comm = Comm::from_rank(core_1_raw, 1, 2, id).map_err(|_| anyhow!("nccl error"))?;
+    let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
+        Ok(comm) => comm,
+        Err(e) => {
+            eprintln!("nccl err: {:?}", e.0);
+            panic!("nccl err");
+        }
+    };
     let core_1 = Device::Cuda(core_1);
 
     let a = Tensor::full(1f32, shape, &core_1)?;
