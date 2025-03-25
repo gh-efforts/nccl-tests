@@ -3,7 +3,7 @@ use anyhow::{anyhow, ensure, Result};
 use candle_core::backend::BackendDevice;
 use candle_core::cuda::CudaStorageSlice;
 use candle_core::{CpuStorage, CudaDevice, CudaStorage, DType, Device, InplaceOp1, Layout, Shape, Storage, Tensor};
-use cudarc::nccl::result::NcclStatus;
+use cudarc::nccl::result::{NcclError, NcclStatus};
 use cudarc::nccl::{Comm, Id};
 use std::sync::Arc;
 use std::time::Instant;
@@ -155,7 +155,13 @@ fn t3<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8
     let core_0 = CudaDevice::new(core0)?;
     let core_0_raw = core_0.cuda_device();
     let core_0 = Device::Cuda(core_0);
-    let comm = Comm::from_rank(core_0_raw, 0, 2, id).unwrap();
+    let comm = match Comm::from_rank(core_0_raw, 0, 2, id) {
+        Ok(comm) => comm,
+        Err(e) => {
+            eprintln!("nccl err: {}", e.0);
+            panic!("nccl err");
+        }
+    };
 
     let mut op = TensorCopy { comm: &comm, from: 1 };
 
