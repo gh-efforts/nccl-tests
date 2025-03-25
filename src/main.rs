@@ -253,15 +253,17 @@ fn t3_mirror(core1: usize) -> Result<()> {
 
         t.inplace_op1(&mut op)?;
         let out = t.add(&a)?;
-        out.device().synchronize()?;
+        // out.device().synchronize()?;
         let (data, _) = out.storage_and_layout();
         let s = match &(*data) {
             Storage::Cuda(s) => s,
             _ => unreachable!(),
         };
         let data = s.as_cuda_slice::<f32>()?;
+        println!("before comm send");
         comm.send(data, 0)
             .map_err(|e| anyhow!("{:?}", e))?;
+        println!("after commd send")
     }
 }
 
