@@ -259,7 +259,7 @@ fn main() {
     args.next();
 
     match args.next().as_deref() {
-        None => {
+        Some("master") => {
             // t1((2, 4), 0, 1).unwrap();
             // t1((2048, 4096), 0, 1).unwrap();
             // t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
