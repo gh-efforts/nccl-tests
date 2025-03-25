@@ -194,6 +194,7 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     recv_t.inplace_op1(&mut op)?;
     println!("after recv");
     recv_t.device().synchronize()?;
+    println!("after sync");
     let elapsed = t.elapsed();
 
     let a = Tensor::full(1f32, shape, &core_0)?;
