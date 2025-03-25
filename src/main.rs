@@ -158,7 +158,7 @@ fn t3<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8
     let comm = match Comm::from_rank(core_0_raw, 0, 2, id) {
         Ok(comm) => comm,
         Err(e) => {
-            eprintln!("nccl err: {}", e.0);
+            eprintln!("nccl err: {:?}", e.0);
             panic!("nccl err");
         }
     };
