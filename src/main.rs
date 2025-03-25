@@ -267,9 +267,9 @@ fn main() {
             // t2((2048, 4096), 0, 7).unwrap();
             // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
-            t3((2, 4), 0, 0).unwrap();
-            t3((2048, 4096), 0, 1).unwrap();
-            t3((2048 * 8, 4096 * 8), 0, 2).unwrap();
+            t3((2, 4), 3, 0).unwrap();
+            t3((2048, 4096), 3, 1).unwrap();
+            t3((2048 * 8, 4096 * 8), 3, 2).unwrap();
         }
         Some("genid") => {
             create_nccl_id(0);
@@ -282,10 +282,10 @@ fn main() {
                     t3_daemon((2, 4), 0, 0).unwrap();
                 });
                 s.spawn(|| {
-                    t3_daemon((2048, 4096), 0, 1).unwrap();
+                    t3_daemon((2048, 4096), 1, 1).unwrap();
                 });
                 s.spawn(|| {
-                    t3_daemon((2048 * 8, 4096 * 8), 0, 2).unwrap();
+                    t3_daemon((2048 * 8, 4096 * 8), 2, 2).unwrap();
                 });
             })
         }
