@@ -151,6 +151,7 @@ fn t3<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8
     }
 
     let id = Id::uninit(id_arr);
+    println!("id: {:?}", id);
 
     let core_0 = CudaDevice::new(core0)?;
     let core_0_raw = core_0.cuda_device();
@@ -202,6 +203,7 @@ fn t3_daemon<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_
     }
 
     let id = Id::uninit(id_arr);
+    println!("id: {:?}", id);
 
     let core_1 = CudaDevice::new(core1)?;
     let core_1_raw = core_1.cuda_device();
@@ -268,8 +270,8 @@ fn main() {
             // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
             t3((2, 4), 3, 0).unwrap();
-            t3((2048, 4096), 3, 1).unwrap();
-            t3((2048 * 8, 4096 * 8), 3, 2).unwrap();
+            // t3((2048, 4096), 3, 1).unwrap();
+            // t3((2048 * 8, 4096 * 8), 3, 2).unwrap();
         }
         Some("genid") => {
             create_nccl_id(0);
@@ -281,12 +283,12 @@ fn main() {
                 s.spawn(|| {
                     t3_daemon((2, 4), 0, 0).unwrap();
                 });
-                s.spawn(|| {
-                    t3_daemon((2048, 4096), 1, 1).unwrap();
-                });
-                s.spawn(|| {
-                    t3_daemon((2048 * 8, 4096 * 8), 2, 2).unwrap();
-                });
+                // s.spawn(|| {
+                //     t3_daemon((2048, 4096), 1, 1).unwrap();
+                // });
+                // s.spawn(|| {
+                //     t3_daemon((2048 * 8, 4096 * 8), 2, 2).unwrap();
+                // });
             })
         }
         _ => panic!("unknown command"),
