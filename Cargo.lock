@@ -575,6 +575,7 @@ dependencies = [
  "anyhow",
  "candle-core",
  "cudarc",
+ "serde_json",
  "zerocopy",
 ]
 

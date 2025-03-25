@@ -8,3 +8,4 @@ anyhow = "1"
 candle-core = { version = "0.8", features = ["cuda"] }
 cudarc = { version = "0.13", features = ["nccl"]}
 zerocopy = "0.8"
+serde_json = "1"

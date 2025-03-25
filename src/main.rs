@@ -1,10 +1,12 @@
-use std::env::args;
 use anyhow::{anyhow, ensure, Result};
 use candle_core::backend::BackendDevice;
 use candle_core::cuda::CudaStorageSlice;
 use candle_core::{CpuStorage, CudaDevice, CudaStorage, DType, Device, InplaceOp1, Layout, Shape, Storage, Tensor};
-use cudarc::nccl::result::{NcclError, NcclStatus};
+use cudarc::nccl::result::NcclStatus;
 use cudarc::nccl::{Comm, Id};
+use std::env::args;
+use std::io::{Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::time::Instant;
 use zerocopy::IntoBytes;
@@ -143,12 +145,19 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
     Ok(())
 }
 
-fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_idx: u8) -> Result<()> {
+fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mirror_addr: &str) -> Result<()> {
     let id = Id::new().unwrap();
     let id_bytes = id.internal();
     let id_bytes = id_bytes.as_bytes();
-    std::fs::write(format!("id{}.dat", id_idx), id_bytes).unwrap();
     println!("id: {:?}", id);
+
+    let mut stream = TcpStream::connect(mirror_addr).unwrap();
+    stream.write_all(id_bytes)?;
+    let shape = shape.into();
+    let shape_buff = serde_json::to_vec(&shape.dims()).unwrap();
+    let shape_len = shape_buff.len() as u32;
+    stream.write_all(&shape_len.to_be_bytes())?;
+    stream.write_all(shape_buff.as_slice())?;
 
     let core_0 = CudaDevice::new(core0)?;
     let core_0_raw = core_0.cuda_device();
@@ -166,7 +175,7 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_
     let x = Tensor::rand::<_, f32>(0f32, 100f32, shape.clone(), &core_0)?;
     x.device().synchronize()?;
 
-    let recv_t = Tensor::zeros(shape, DType::F32, &core_0)?;
+    let recv_t = Tensor::zeros(shape.clone(), DType::F32, &core_0)?;
     recv_t.device().synchronize()?;
 
     let t = Instant::now();
@@ -191,39 +200,46 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, id_
     Ok(())
 }
 
-fn t3_mirror<S: Into<Shape> + Copy + Send + 'static>(shape: S, core1: usize, id_idx: u8) -> Result<()> {
-    let mut id_arr = [0i8; 128];
-
-    let id = std::fs::read(format!("id{}.dat", id_idx))?;
-    assert_eq!(id.len(), 128);
-    for (i, &x) in id.iter().enumerate() {
-        id_arr[i] = x as i8;
-    }
-
-    let id = Id::uninit(id_arr);
-    println!("id: {:?}", id);
-
-    let core_1 = CudaDevice::new(core1)?;
-    let core_1_raw = core_1.cuda_device();
-    let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
-        Ok(comm) => comm,
-        Err(e) => {
-            eprintln!("nccl err: {:?}", e.0);
-            panic!("nccl err");
-        }
-    };
-    let core_1 = Device::Cuda(core_1);
-
-    let a = Tensor::full(1f32, shape, &core_1)?;
-    a.device().synchronize()?;
-
-    let mut op = TensorCopy { comm: &comm, from: 0 };
-    let t = Tensor::zeros(shape, DType::F32, &core_1)?;
-    t.device().synchronize()?;
-
-    println!("serve idx {} started", id_idx);
+fn t3_mirror(core1: usize) -> Result<()> {
+    let listener = TcpListener::bind("0.0.0.0:34053")?;
 
     loop {
+        let (mut stream, _) = listener.accept()?;
+        let mut id_buf = [0u8; 128];
+        let mut id_arr = [0i8; 128];
+        stream.read_exact(&mut id_buf)?;
+        for (i, &data) in id_buf.iter().enumerate() {
+            id_arr[i] = data as i8;
+        }
+        let id = Id::uninit(id_arr);
+        println!("id: {:?}", id);
+
+        let mut len_buf = [0u8; 4];
+        stream.read_exact(&mut len_buf)?;
+        let len = u32::from_be_bytes(len_buf) as usize;
+
+        let mut shape_buf = vec![0u8; len];
+        stream.read_exact(&mut shape_buf)?;
+        let shape: Vec<usize> = serde_json::from_slice(&shape_buf)?;
+
+        let core_1 = CudaDevice::new(core1)?;
+        let core_1_raw = core_1.cuda_device();
+        let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
+            Ok(comm) => comm,
+            Err(e) => {
+                eprintln!("nccl err: {:?}", e.0);
+                panic!("nccl err");
+            }
+        };
+        let core_1 = Device::Cuda(core_1);
+
+        let a = Tensor::full(1f32, shape.clone(), &core_1)?;
+        a.device().synchronize()?;
+
+        let mut op = TensorCopy { comm: &comm, from: 0 };
+        let t = Tensor::zeros(shape, DType::F32, &core_1)?;
+        t.device().synchronize()?;
+
         t.inplace_op1(&mut op)?;
         let out = t.add(&a)?;
         out.device().synchronize()?;
@@ -260,21 +276,14 @@ fn main() {
             // t2((2048, 4096), 0, 7).unwrap();
             // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
-            t3_master((2, 4), 3, 0).unwrap();
-            // t3((2048, 4096), 3, 1).unwrap();
-            // t3((2048 * 8, 4096 * 8), 3, 2).unwrap();
+            let mirror_addr = args.next().unwrap();
+            t3_master((2, 4), 3, &mirror_addr).unwrap();
+            t3_master((2048, 4096), 3, &mirror_addr).unwrap();
+            t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
         }
         Some("mirror") => {
             std::thread::scope(|s| {
-                s.spawn(|| {
-                    t3_mirror((2, 4), 0, 0).unwrap();
-                });
-                // s.spawn(|| {
-                //     t3_daemon((2048, 4096), 1, 1).unwrap();
-                // });
-                // s.spawn(|| {
-                //     t3_daemon((2048 * 8, 4096 * 8), 2, 2).unwrap();
-                // });
+                t3_mirror(0).unwrap();
             })
         }
         _ => panic!("unknown command"),
