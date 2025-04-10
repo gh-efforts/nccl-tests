@@ -266,26 +266,26 @@ fn main() {
 
     match args.next().as_deref() {
         Some("master") => {
-            // t1((2, 4), 0, 1).unwrap();
-            // t1((2048, 4096), 0, 1).unwrap();
-            // t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
-            //
-            // t1((2, 4), 0, 7).unwrap();
-            // t1((2048, 4096), 0, 7).unwrap();
-            // t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
-            //
-            // t2((2, 4), 0, 1).unwrap();
-            // t2((2048, 4096), 0, 1).unwrap();
-            // t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
-            //
-            // t2((2, 4), 0, 7).unwrap();
-            // t2((2048, 4096), 0, 7).unwrap();
-            // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            t1((2, 4), 0, 1).unwrap();
+            t1((2048, 4096), 0, 1).unwrap();
+            t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
+            
+            t1((2, 4), 0, 7).unwrap();
+            t1((2048, 4096), 0, 7).unwrap();
+            t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            
+            t2((2, 4), 0, 1).unwrap();
+            t2((2048, 4096), 0, 1).unwrap();
+            t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
+            
+            t2((2, 4), 0, 7).unwrap();
+            t2((2048, 4096), 0, 7).unwrap();
+            t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
-            let mirror_addr = args.next().unwrap();
-            t3_master((2, 4), 3, &mirror_addr).unwrap();
-            t3_master((2048, 4096), 3, &mirror_addr).unwrap();
-            t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
+            // let mirror_addr = args.next().unwrap();
+            // t3_master((2, 4), 3, &mirror_addr).unwrap();
+            // t3_master((2048, 4096), 3, &mirror_addr).unwrap();
+            // t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
         }
         Some("mirror") => {
             std::thread::scope(|s| {
