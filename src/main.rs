@@ -95,7 +95,7 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
             barrier.wait();
 
-            loop {
+            for 0 in 0..10 {
                 t.inplace_op1(&mut op)?;
                 let out = t.add(&a)?;
                 // out.device().synchronize()?;
@@ -274,13 +274,13 @@ fn main() {
 
     match args.next().as_deref() {
         Some("master") => {
-            t1((2, 4), 0, 1).unwrap();
-            t1((2048, 4096), 0, 1).unwrap();
-            t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
-
-            t1((2, 4), 0, 7).unwrap();
-            t1((2048, 4096), 0, 7).unwrap();
-            t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            // t1((2, 4), 0, 1).unwrap();
+            // t1((2048, 4096), 0, 1).unwrap();
+            // t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
+            //
+            // t1((2, 4), 0, 7).unwrap();
+            // t1((2048, 4096), 0, 7).unwrap();
+            // t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
             t2((2, 4), 0, 1).unwrap();
             t2((2048, 4096), 0, 1).unwrap();
