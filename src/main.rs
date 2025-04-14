@@ -95,7 +95,7 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
             barrier.wait();
 
-            for 0 in 0..10 {
+            for _ in 0..10 {
                 t.inplace_op1(&mut op)?;
                 let out = t.add(&a)?;
                 // out.device().synchronize()?;
