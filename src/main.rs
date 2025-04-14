@@ -53,20 +53,23 @@ fn t1<S: Into<Shape> + Copy>(shape: S, core0: usize, core1: usize) -> Result<()>
     let a = Tensor::full(1f32, shape, &core_1)?;
     a.device().synchronize()?;
 
-    let t = Instant::now();
-    let x_1 = x_0.to_device(&core_1)?;
-    let x_1 = x_1.add(&a)?;
-    let new_x_0 = x_1.to_device(&core_0)?;
-    new_x_0.device().synchronize()?;
-    let elapsed = t.elapsed();
-    println!("same node, shape: {:?}, dtype: {}, CORE{} -> CPU mem -> CORE{}, use {:?}", new_x_0.shape(), "f32", core0, core1, elapsed);
+    for i in 0..10 {
+        let t = Instant::now();
+        let x_1 = x_0.to_device(&core_1)?;
+        let x_1 = x_1.add(&a)?;
+        let new_x_0 = x_1.to_device(&core_0)?;
+        new_x_0.device().synchronize()?;
+        let elapsed = t.elapsed();
+        println!("same node, shape: {:?}, dtype: {}, round {} CORE{} -> CPU mem -> CORE{}, use {:?}", new_x_0.shape(), i, "f32", core0, core1, elapsed);
 
-    let a_0 = a.to_device(&core_0)?;
-    let x_0 = x_0.add(&a_0)?;
+        let a_0 = a.to_device(&core_0)?;
+        let x_0 = x_0.add(&a_0)?;
 
-    let new_x_0 = new_x_0.to_string();
-    let x_0 = x_0.to_string();
-    ensure!(new_x_0 == x_0);
+        let new_x_0 = new_x_0.to_string();
+        let x_0 = x_0.to_string();
+        ensure!(new_x_0 == x_0);
+    }
+
     Ok(())
 }
 
@@ -269,18 +272,18 @@ fn main() {
             t1((2, 4), 0, 1).unwrap();
             t1((2048, 4096), 0, 1).unwrap();
             t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
-            
-            t1((2, 4), 0, 7).unwrap();
-            t1((2048, 4096), 0, 7).unwrap();
-            t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
-            
-            t2((2, 4), 0, 1).unwrap();
-            t2((2048, 4096), 0, 1).unwrap();
-            t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
-            
-            t2((2, 4), 0, 7).unwrap();
-            t2((2048, 4096), 0, 7).unwrap();
-            t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
+
+            // t1((2, 4), 0, 7).unwrap();
+            // t1((2048, 4096), 0, 7).unwrap();
+            // t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            //
+            // t2((2, 4), 0, 1).unwrap();
+            // t2((2048, 4096), 0, 1).unwrap();
+            // t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
+            //
+            // t2((2, 4), 0, 7).unwrap();
+            // t2((2048, 4096), 0, 7).unwrap();
+            // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
             // let mirror_addr = args.next().unwrap();
             // t3_master((2, 4), 3, &mirror_addr).unwrap();
