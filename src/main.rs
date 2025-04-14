@@ -95,17 +95,19 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
             barrier.wait();
 
-            t.inplace_op1(&mut op)?;
-            let out = t.add(&a)?;
-            out.device().synchronize()?;
-            let (data, _) = out.storage_and_layout();
-            let s = match &(*data) {
-                Storage::Cuda(s) => s,
-                _ => unreachable!(),
-            };
-            let data = s.as_cuda_slice::<f32>()?;
-            comm.send(data, 0)
-                .map_err(|e| anyhow!("{:?}", e))?;
+            loop {
+                t.inplace_op1(&mut op)?;
+                let out = t.add(&a)?;
+                // out.device().synchronize()?;
+                let (data, _) = out.storage_and_layout();
+                let s = match &(*data) {
+                    Storage::Cuda(s) => s,
+                    _ => unreachable!(),
+                };
+                let data = s.as_cuda_slice::<f32>()?;
+                comm.send(data, 0)
+                    .map_err(|e| anyhow!("{:?}", e))?;
+            }
 
             Result::<_, anyhow::Error>::Ok(())
         }
@@ -126,25 +128,28 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
     barrier.wait();
 
-    let t = Instant::now();
-    let (data, _layout) = x.storage_and_layout();
-    let s = match &(*data) {
-        Storage::Cuda(s) => s,
-        _ => unreachable!(),
-    };
-    let data = s.as_cuda_slice::<f32>()?;
-    comm
-        .send(data, 1)
-        .map_err(|e| anyhow!("{:?}", e))?;
-    recv_t.inplace_op1(&mut op)?;
-    recv_t.device().synchronize()?;
-    let elapsed = t.elapsed();
+    for i in 0..10 {
+        let t = Instant::now();
+        let (data, _layout) = x.storage_and_layout();
+        let s = match &(*data) {
+            Storage::Cuda(s) => s,
+            _ => unreachable!(),
+        };
+        let data = s.as_cuda_slice::<f32>()?;
+        comm
+            .send(data, 1)
+            .map_err(|e| anyhow!("{:?}", e))?;
+        recv_t.inplace_op1(&mut op)?;
+        recv_t.device().synchronize()?;
+        let elapsed = t.elapsed();
 
-    let a = Tensor::full(1f32, shape, &core_0)?;
-    let x = x.add(&a)?;
+        let a = Tensor::full(1f32, shape, &core_0)?;
+        let x = x.add(&a)?;
 
-    ensure!(recv_t.to_string() == x.to_string());
-    println!("same node use nccl, shape {:?}, dtype {}, CORE{} -> CORE{}, use {:?}", x.shape(), "f32", core0, core1, elapsed);
+        ensure!(recv_t.to_string() == x.to_string());
+        println!("same node use nccl, round {}, shape {:?}, dtype {}, CORE{} -> CORE{}, use {:?}", i, x.shape(), "f32", core0, core1, elapsed);
+    }
+
     Ok(())
 }
 
@@ -273,17 +278,17 @@ fn main() {
             t1((2048, 4096), 0, 1).unwrap();
             t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
 
-            // t1((2, 4), 0, 7).unwrap();
-            // t1((2048, 4096), 0, 7).unwrap();
-            // t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
-            //
-            // t2((2, 4), 0, 1).unwrap();
-            // t2((2048, 4096), 0, 1).unwrap();
-            // t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
-            //
-            // t2((2, 4), 0, 7).unwrap();
-            // t2((2048, 4096), 0, 7).unwrap();
-            // t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            t1((2, 4), 0, 7).unwrap();
+            t1((2048, 4096), 0, 7).unwrap();
+            t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
+
+            t2((2, 4), 0, 1).unwrap();
+            t2((2048, 4096), 0, 1).unwrap();
+            t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
+
+            t2((2, 4), 0, 7).unwrap();
+            t2((2048, 4096), 0, 7).unwrap();
+            t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
             // let mirror_addr = args.next().unwrap();
             // t3_master((2, 4), 3, &mirror_addr).unwrap();
