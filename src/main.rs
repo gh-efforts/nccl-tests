@@ -186,25 +186,28 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     let recv_t = Tensor::zeros(shape.clone(), DType::F32, &core_0)?;
     recv_t.device().synchronize()?;
 
-    let t = Instant::now();
-    let (data, _layout) = x.storage_and_layout();
-    let s = match &(*data) {
-        Storage::Cuda(s) => s,
-        _ => unreachable!(),
-    };
-    let data = s.as_cuda_slice::<f32>()?;
-    comm
-        .send(data, 1)
-        .map_err(|e| anyhow!("{:?}", e))?;
-    recv_t.inplace_op1(&mut op)?;
-    recv_t.device().synchronize()?;
-    let elapsed = t.elapsed();
+    for i in 0..10 {
+        let t = Instant::now();
+        let (data, _layout) = x.storage_and_layout();
+        let s = match &(*data) {
+            Storage::Cuda(s) => s,
+            _ => unreachable!(),
+        };
+        let data = s.as_cuda_slice::<f32>()?;
+        comm
+            .send(data, 1)
+            .map_err(|e| anyhow!("{:?}", e))?;
+        recv_t.inplace_op1(&mut op)?;
+        recv_t.device().synchronize()?;
+        let elapsed = t.elapsed();
 
-    let a = Tensor::full(1f32, shape, &core_0)?;
-    let x = x.add(&a)?;
+        let a = Tensor::full(1f32, shape.clone(), &core_0)?;
+        let x = x.add(&a)?;
 
-    ensure!(recv_t.to_string() == x.to_string());
-    println!("use nccl, shape {:?}, dtype {}, node0 -> node1, use {:?}", x.shape(), "f32", elapsed);
+        ensure!(recv_t.to_string() == x.to_string());
+        println!("use nccl, round {}, shape {:?}, dtype {}, node0 -> node1, use {:?}", i, x.shape(), "f32", elapsed);
+    }
+
     Ok(())
 }
 
@@ -251,20 +254,20 @@ fn t3_mirror(core1: usize) -> Result<()> {
 
         let mut op = TensorCopy { comm: &comm, from: 0 };
 
-        t.inplace_op1(&mut op)?;
-        let out = t.add(&a)?;
-        let (data, _) = out.storage_and_layout();
-        let s = match &(*data) {
-            Storage::Cuda(s) => s,
-            _ => unreachable!(),
-        };
+        for _ in 0..10 {
+            t.inplace_op1(&mut op)?;
+            let out = t.add(&a)?;
+            let (data, _) = out.storage_and_layout();
+            let s = match &(*data) {
+                Storage::Cuda(s) => s,
+                _ => unreachable!(),
+            };
 
-        let data = s.as_cuda_slice::<f32>()?;
+            let data = s.as_cuda_slice::<f32>()?;
 
-        comm.send(data, 0)
-            .map_err(|e| anyhow!("{:?}", e))?;
-
-        comm.device().synchronize()?;
+            comm.send(data, 0)
+                .map_err(|e| anyhow!("{:?}", e))?;
+        }
     }
 }
 
@@ -274,13 +277,13 @@ fn main() {
 
     match args.next().as_deref() {
         Some("master") => {
-            // t1((2, 4), 0, 1).unwrap();
-            // t1((2048, 4096), 0, 1).unwrap();
-            // t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
-            //
-            // t1((2, 4), 0, 7).unwrap();
-            // t1((2048, 4096), 0, 7).unwrap();
-            // t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            t1((2, 4), 0, 1).unwrap();
+            t1((2048, 4096), 0, 1).unwrap();
+            t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
+
+            t1((2, 4), 0, 7).unwrap();
+            t1((2048, 4096), 0, 7).unwrap();
+            t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
 
             t2((2, 4), 0, 1).unwrap();
             t2((2048, 4096), 0, 1).unwrap();
