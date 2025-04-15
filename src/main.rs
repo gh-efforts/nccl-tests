@@ -53,14 +53,14 @@ fn t1<S: Into<Shape> + Copy>(shape: S, core0: usize, core1: usize) -> Result<()>
     let a = Tensor::full(1f32, shape, &core_1)?;
     a.device().synchronize()?;
 
-    for i in 0..10 {
+    for i in 0..5 {
         let t = Instant::now();
         let x_1 = x_0.to_device(&core_1)?;
         let x_1 = x_1.add(&a)?;
         let new_x_0 = x_1.to_device(&core_0)?;
         new_x_0.device().synchronize()?;
         let elapsed = t.elapsed();
-        println!("same node, shape: {:?}, dtype: {}, round {} CORE{} -> CPU mem -> CORE{}, use {:?}", new_x_0.shape(), i, "f32", core0, core1, elapsed);
+        println!("same node, round {}, shape: {:?}, dtype: {}, CORE{} -> CPU mem -> CORE{}, use {:?}", i, new_x_0.shape(), "f32", core0, core1, elapsed);
 
         let a_0 = a.to_device(&core_0)?;
         let x_0 = x_0.add(&a_0)?;
@@ -95,7 +95,7 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
             barrier.wait();
 
-            for _ in 0..10 {
+            for _ in 0..5 {
                 t.inplace_op1(&mut op)?;
                 let out = t.add(&a)?;
                 // out.device().synchronize()?;
@@ -128,7 +128,7 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
     barrier.wait();
 
-    for i in 0..10 {
+    for i in 0..5 {
         let t = Instant::now();
         let (data, _layout) = x.storage_and_layout();
         let s = match &(*data) {
@@ -186,7 +186,7 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     let recv_t = Tensor::zeros(shape.clone(), DType::F32, &core_0)?;
     recv_t.device().synchronize()?;
 
-    for i in 0..10 {
+    for i in 0..5 {
         let t = Instant::now();
         let (data, _layout) = x.storage_and_layout();
         let s = match &(*data) {
@@ -254,7 +254,7 @@ fn t3_mirror(core1: usize) -> Result<()> {
 
         let mut op = TensorCopy { comm: &comm, from: 0 };
 
-        for _ in 0..10 {
+        for _ in 0..5 {
             t.inplace_op1(&mut op)?;
             let out = t.add(&a)?;
             let (data, _) = out.storage_and_layout();
@@ -277,21 +277,17 @@ fn main() {
 
     match args.next().as_deref() {
         Some("master") => {
-            t1((2, 4), 0, 1).unwrap();
-            t1((2048, 4096), 0, 1).unwrap();
-            t1((2048 * 8, 4096 * 8), 0, 1).unwrap();
+            t1((1, 7168), 0, 1).unwrap();
+            t1((8, 7168), 0, 1).unwrap();
+            t1((32, 7168), 0, 1).unwrap();
+            t1((128, 7168), 0, 1).unwrap();
+            t1((256, 7168), 0, 1).unwrap();
 
-            t1((2, 4), 0, 7).unwrap();
-            t1((2048, 4096), 0, 7).unwrap();
-            t1((2048 * 8, 4096 * 8), 0, 7).unwrap();
-
-            t2((2, 4), 0, 1).unwrap();
-            t2((2048, 4096), 0, 1).unwrap();
-            t2((2048 * 8, 4096 * 8), 0, 1).unwrap();
-
-            t2((2, 4), 0, 7).unwrap();
-            t2((2048, 4096), 0, 7).unwrap();
-            t2((2048 * 8, 4096 * 8), 0, 7).unwrap();
+            t2((1, 7168), 0, 1).unwrap();
+            t2((8, 7168), 0, 1).unwrap();
+            t2((32, 7168), 0, 1).unwrap();
+            t2((128, 7168), 0, 1).unwrap();
+            t2((256, 7168), 0, 1).unwrap();
 
             // let mirror_addr = args.next().unwrap();
             // t3_master((2, 4), 3, &mirror_addr).unwrap();
