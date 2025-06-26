@@ -7,6 +7,7 @@ use cudarc::nccl::{Comm, Id};
 use std::env::args;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Instant;
 use cudarc::driver::result::init;
@@ -393,5 +394,9 @@ fn main() {
     //     _ => panic!("unknown command"),
     // }
 
-    broadcast(1024).unwrap();
+    let mut args = args();
+    args.next();
+    let buff_size = args.next().unwrap();
+    let buff_size = usize::from_str(&buff_size).unwrap();
+    broadcast(buff_size).unwrap();
 }
