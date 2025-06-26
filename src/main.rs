@@ -363,6 +363,70 @@ fn broadcast(buff_size: usize) -> Result<()> {
     Ok(())
 }
 
+fn unicast(buff_size: usize) -> Result<()> {
+    let id = Id::new().unwrap();
+    let barrier = Arc::new(std::sync::Barrier::new(2));
+
+    for rank in 1..2 {
+        let barrier = barrier.clone();
+        std::thread::spawn(move || {
+            let f = move || {
+                let core = CudaDevice::new(rank)?;
+                let comm = Comm::from_rank(core.cuda_stream(), rank, 2, id).map_err(|_| anyhow!("nccl error"))?;
+                let candle_device = Device::Cuda(core);
+
+                let expect = vec![1u8; buff_size];
+
+                let op = TensorBroadcast {
+                    comm: &comm,
+                    root: 0,
+                };
+
+                loop {
+                    let recv = Tensor::zeros((buff_size), DType::U8, &candle_device)?;
+
+                    candle_device.synchronize()?;
+                    barrier.wait();
+
+                    let t = Instant::now();
+                    recv.inplace_op1(&op)?;
+                    recv.device().synchronize()?;
+                    let elapsed = t.elapsed();
+
+                    println!("nccl unicast: {:?}", elapsed);
+
+                    let data = recv.to_vec1::<u8>()?;
+                    ensure!(data == expect, "data mismatch: expected {:?}, got {:?}", expect, data);
+                }
+                Result::<_, anyhow::Error>::Ok(())
+            };
+            f().unwrap()
+        });
+    }
+
+    let core = CudaDevice::new(0)?;
+    let comm = Comm::from_rank(core.cuda_stream(), 0, 2, id).map_err(|_| anyhow!("nccl error"))?;
+    let candle_device = Device::Cuda(core);
+
+    let send_tensor = Tensor::ones((buff_size), DType::U8, &candle_device)?;
+    let op = TensorBroadcast {
+        comm: &comm,
+        root: 0,
+    };
+
+    candle_device.synchronize()?;
+
+    for _ in 0..5 {
+        barrier.wait();
+
+        send_tensor.inplace_op1(&op)?;
+        candle_device.synchronize()?;
+
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+    Ok(())
+}
+
 fn main() {
     // let mut args = args();
     // args.next();
@@ -398,5 +462,13 @@ fn main() {
     args.next();
     let buff_size = args.next().unwrap();
     let buff_size = usize::from_str(&buff_size).unwrap();
+
+    println!("=======================broadcast=====================");
     broadcast(buff_size).unwrap();
+    println!("=====================================================");
+    println!();
+    println!();
+    println!("=======================unicast=======================");
+    unicast(buff_size).unwrap();
+    println!("=====================================================");
 }
