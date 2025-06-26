@@ -9,6 +9,7 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc;
 use std::time::Instant;
+use cudarc::driver::result::init;
 use zerocopy::IntoBytes;
 
 struct TensorCopy<'a> {
@@ -33,6 +34,34 @@ impl InplaceOp1 for TensorCopy<'_> {
 
         while self.comm
             .recv(slice, self.from)
+            .map_err(|_| candle_core::Error::msg("nccl error"))? == NcclStatus::InProgress {}
+
+        Ok(())
+    }
+}
+
+struct TensorBroadcast<'a> {
+    comm: &'a Comm,
+    root: i32,
+}
+
+impl InplaceOp1 for TensorBroadcast<'_> {
+    fn name(&self) -> &'static str {
+        "tensor-broadcast"
+    }
+
+    fn cpu_fwd(&self, _storage: &mut CpuStorage, _layout: &Layout) -> candle_core::Result<()> {
+        unimplemented!()
+    }
+
+    fn cuda_fwd(&self, storage: &mut CudaStorage, _layout: &Layout) -> candle_core::Result<()> {
+        let slice = match &mut storage.slice {
+            CudaStorageSlice::U8(v) => v,
+            _ => unreachable!()
+        };
+
+        while self.comm
+            .broadcast_in_place(slice, self.root)
             .map_err(|_| candle_core::Error::msg("nccl error"))? == NcclStatus::InProgress {}
 
         Ok(())
@@ -82,8 +111,7 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
 
         move || {
             let core_1 = CudaDevice::new(core1)?;
-            let core_1_raw = core_1.cuda_device();
-            let comm = Comm::from_rank(core_1_raw, 1, 2, id).map_err(|_| anyhow!("nccl error"))?;
+            let comm = Comm::from_rank(core_1.cuda_stream(), 1, 2, id).map_err(|_| anyhow!("nccl error"))?;
             let core_1 = Device::Cuda(core_1);
 
             let a = Tensor::full(1f32, shape, &core_1)?;
@@ -114,9 +142,8 @@ fn t2<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, core1: usi
     });
 
     let core_0 = CudaDevice::new(core0)?;
-    let core_0_raw = core_0.cuda_device();
+    let comm = Comm::from_rank(core_0.cuda_stream(), 0, 2, id).unwrap();
     let core_0 = Device::Cuda(core_0);
-    let comm = Comm::from_rank(core_0_raw, 0, 2, id).unwrap();
 
     let mut op = TensorCopy { comm: &comm, from: 1 };
 
@@ -167,10 +194,10 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
     stream.write_all(shape_buff.as_slice())?;
 
     let core_0 = CudaDevice::new(core0)?;
-    let core_0_raw = core_0.cuda_device();
+    let core_0_stream = core_0.cuda_stream();
     let core_0 = Device::Cuda(core_0);
 
-    let comm = match Comm::from_rank(core_0_raw, 0, 2, id) {
+    let comm = match Comm::from_rank(core_0_stream, 0, 2, id) {
         Ok(comm) => comm,
         Err(e) => {
             eprintln!("nccl err: {:?}", e.0);
@@ -234,7 +261,7 @@ fn t3_mirror(core1: usize) -> Result<()> {
         let shape: Vec<usize> = serde_json::from_slice(&shape_buf)?;
 
         let core_1 = CudaDevice::new(core1)?;
-        let core_1_raw = core_1.cuda_device();
+        let core_1_stream = core_1.cuda_stream();
 
         let core_1 = Device::Cuda(core_1);
 
@@ -244,7 +271,7 @@ fn t3_mirror(core1: usize) -> Result<()> {
         let t = Tensor::zeros(shape, DType::F32, &core_1)?;
         t.device().synchronize()?;
 
-        let comm = match Comm::from_rank(core_1_raw, 1, 2, id) {
+        let comm = match Comm::from_rank(core_1_stream, 1, 2, id) {
             Ok(comm) => comm,
             Err(e) => {
                 eprintln!("nccl err: {:?}", e.0);
@@ -271,34 +298,100 @@ fn t3_mirror(core1: usize) -> Result<()> {
     }
 }
 
-fn main() {
-    let mut args = args();
-    args.next();
+fn broadcast(buff_size: usize) -> Result<()> {
+    let id = Id::new().unwrap();
+    let barrier = Arc::new(std::sync::Barrier::new(8));
 
-    match args.next().as_deref() {
-        Some("master") => {
-            t1((1, 7168), 0, 1).unwrap();
-            t1((8, 7168), 0, 1).unwrap();
-            t1((32, 7168), 0, 1).unwrap();
-            t1((128, 7168), 0, 1).unwrap();
-            t1((256, 7168), 0, 1).unwrap();
+    for rank in 1..8 {
+        let barrier = barrier.clone();
+        std::thread::spawn(move || {
+            let f = move || {
+                let core = CudaDevice::new(rank)?;
+                let comm = Comm::from_rank(core.cuda_stream(), rank, 8, id).map_err(|_| anyhow!("nccl error"))?;
+                let candle_device = Device::Cuda(core);
 
-            t2((1, 7168), 0, 1).unwrap();
-            t2((8, 7168), 0, 1).unwrap();
-            t2((32, 7168), 0, 1).unwrap();
-            t2((128, 7168), 0, 1).unwrap();
-            t2((256, 7168), 0, 1).unwrap();
+                let expect = vec![1u8; buff_size];
 
-            // let mirror_addr = args.next().unwrap();
-            // t3_master((2, 4), 3, &mirror_addr).unwrap();
-            // t3_master((2048, 4096), 3, &mirror_addr).unwrap();
-            // t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
-        }
-        Some("mirror") => {
-            std::thread::scope(|s| {
-                t3_mirror(0).unwrap();
-            })
-        }
-        _ => panic!("unknown command"),
+                let op = TensorBroadcast {
+                    comm: &comm,
+                    root: 0,
+                };
+
+                loop {
+                    let recv = Tensor::zeros((buff_size), DType::U8, &candle_device)?;
+
+                    candle_device.synchronize()?;
+                    barrier.wait();
+
+                    let t = Instant::now();
+                    recv.inplace_op1(&op)?;
+                    recv.device().synchronize()?;
+                    let elapsed = t.elapsed();
+
+                    println!("nccl broadcast: {:?}", elapsed);
+
+                    let data = recv.to_vec1::<u8>()?;
+                    ensure!(data == expect, "data mismatch: expected {:?}, got {:?}", expect, data);
+                }
+                Result::<_, anyhow::Error>::Ok(())
+            };
+            f().unwrap()
+        });
     }
+
+    let core = CudaDevice::new(0)?;
+    let comm = Comm::from_rank(core.cuda_stream(), 0, 8, id).map_err(|_| anyhow!("nccl error"))?;
+    let candle_device = Device::Cuda(core);
+
+    let send_tensor = Tensor::ones((buff_size), DType::U8, &candle_device)?;
+    let op = TensorBroadcast {
+        comm: &comm,
+        root: 0,
+    };
+
+    candle_device.synchronize()?;
+
+    for _ in 0..5 {
+        barrier.wait();
+
+        send_tensor.inplace_op1(&op)?;
+        candle_device.synchronize()?;
+
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
+    Ok(())
+}
+
+fn main() {
+    // let mut args = args();
+    // args.next();
+    //
+    // match args.next().as_deref() {
+    //     Some("master") => {
+    //         t1((1, 7168), 0, 1).unwrap();
+    //         t1((8, 7168), 0, 1).unwrap();
+    //         t1((32, 7168), 0, 1).unwrap();
+    //         t1((128, 7168), 0, 1).unwrap();
+    //         t1((256, 7168), 0, 1).unwrap();
+    //
+    //         t2((1, 7168), 0, 1).unwrap();
+    //         t2((8, 7168), 0, 1).unwrap();
+    //         t2((32, 7168), 0, 1).unwrap();
+    //         t2((128, 7168), 0, 1).unwrap();
+    //         t2((256, 7168), 0, 1).unwrap();
+    //
+    //         // let mirror_addr = args.next().unwrap();
+    //         // t3_master((2, 4), 3, &mirror_addr).unwrap();
+    //         // t3_master((2048, 4096), 3, &mirror_addr).unwrap();
+    //         // t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
+    //     }
+    //     Some("mirror") => {
+    //         std::thread::scope(|s| {
+    //             t3_mirror(0).unwrap();
+    //         })
+    //     }
+    //     _ => panic!("unknown command"),
+    // }
+
+    broadcast(1024).unwrap();
 }

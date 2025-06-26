@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-candle-core = { version = "0.8", features = ["cuda"] }
-cudarc = { version = "0.13", features = ["nccl"]}
+candle-core = { version = "0.9", features = ["cuda"] }
+cudarc = { version = "0.16", features = ["nccl"], default-features = false}
 zerocopy = "0.8"
 serde_json = "1"
