@@ -225,6 +225,9 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
         comm
             .send(data, 1)
             .map_err(|e| anyhow!("{:?}", e))?;
+
+        recv_t.device().synchronize()?;
+
         recv_t.inplace_op1(&mut op)?;
         println!("before synchronize");
         recv_t.device().synchronize()?;
@@ -236,8 +239,6 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
 
         ensure!(recv_t.to_string() == x.to_string());
         println!("use nccl, round {}, shape {:?}, dtype {}, node0 -> node1, use {:?}", i, x.shape(), "f32", elapsed);
-
-        std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
     Ok(())
@@ -291,6 +292,7 @@ fn t3_mirror(core1: usize) -> Result<()> {
 
             t.inplace_op1(&mut op)?;
             let out = t.add(&a)?;
+            out.device().synchronize()?;
             let (data, _) = out.storage_and_layout();
             let s = match &(*data) {
                 Storage::Cuda(s) => s,
