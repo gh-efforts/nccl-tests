@@ -428,47 +428,47 @@ fn unicast(buff_size: usize) -> Result<()> {
 }
 
 fn main() {
-    // let mut args = args();
-    // args.next();
-    //
-    // match args.next().as_deref() {
-    //     Some("master") => {
-    //         t1((1, 7168), 0, 1).unwrap();
-    //         t1((8, 7168), 0, 1).unwrap();
-    //         t1((32, 7168), 0, 1).unwrap();
-    //         t1((128, 7168), 0, 1).unwrap();
-    //         t1((256, 7168), 0, 1).unwrap();
-    //
-    //         t2((1, 7168), 0, 1).unwrap();
-    //         t2((8, 7168), 0, 1).unwrap();
-    //         t2((32, 7168), 0, 1).unwrap();
-    //         t2((128, 7168), 0, 1).unwrap();
-    //         t2((256, 7168), 0, 1).unwrap();
-    //
-    //         // let mirror_addr = args.next().unwrap();
-    //         // t3_master((2, 4), 3, &mirror_addr).unwrap();
-    //         // t3_master((2048, 4096), 3, &mirror_addr).unwrap();
-    //         // t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
-    //     }
-    //     Some("mirror") => {
-    //         std::thread::scope(|s| {
-    //             t3_mirror(0).unwrap();
-    //         })
-    //     }
-    //     _ => panic!("unknown command"),
-    // }
-
     let mut args = args();
     args.next();
-    let buff_size = args.next().unwrap();
-    let buff_size = usize::from_str(&buff_size).unwrap();
 
-    println!("=======================broadcast=====================");
-    broadcast(buff_size).unwrap();
-    println!("=====================================================");
-    println!();
-    println!();
-    println!("=======================unicast=======================");
-    unicast(buff_size).unwrap();
-    println!("=====================================================");
+    match args.next().as_deref() {
+        Some("master") => {
+            // t1((1, 7168), 0, 1).unwrap();
+            // t1((8, 7168), 0, 1).unwrap();
+            // t1((32, 7168), 0, 1).unwrap();
+            // t1((128, 7168), 0, 1).unwrap();
+            // t1((256, 7168), 0, 1).unwrap();
+            //
+            // t2((1, 7168), 0, 1).unwrap();
+            // t2((8, 7168), 0, 1).unwrap();
+            // t2((32, 7168), 0, 1).unwrap();
+            // t2((128, 7168), 0, 1).unwrap();
+            // t2((256, 7168), 0, 1).unwrap();
+
+            let mirror_addr = args.next().unwrap();
+            t3_master((2, 4), 3, &mirror_addr).unwrap();
+            t3_master((2048, 4096), 3, &mirror_addr).unwrap();
+            t3_master((2048 * 8, 4096 * 8), 3, &mirror_addr).unwrap();
+        }
+        Some("mirror") => {
+            std::thread::scope(|s| {
+                t3_mirror(0).unwrap();
+            })
+        }
+        _ => panic!("unknown command"),
+    }
+
+    // let mut args = args();
+    // args.next();
+    // let buff_size = args.next().unwrap();
+    // let buff_size = usize::from_str(&buff_size).unwrap();
+    //
+    // println!("=======================broadcast=====================");
+    // broadcast(buff_size).unwrap();
+    // println!("=====================================================");
+    // println!();
+    // println!();
+    // println!("=======================unicast=======================");
+    // unicast(buff_size).unwrap();
+    // println!("=====================================================");
 }
