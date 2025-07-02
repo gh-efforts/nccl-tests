@@ -234,6 +234,8 @@ fn t3_master<S: Into<Shape> + Copy + Send + 'static>(shape: S, core0: usize, mir
 
         ensure!(recv_t.to_string() == x.to_string());
         println!("use nccl, round {}, shape {:?}, dtype {}, node0 -> node1, use {:?}", i, x.shape(), "f32", elapsed);
+
+        std::thread::sleep(std::time::Duration::from_secs(2));
     }
 
     Ok(())
