@@ -287,6 +287,8 @@ fn t3_mirror(core1: usize) -> Result<()> {
         let mut op = TensorCopy { comm: &comm, from: 0 };
 
         for _ in 0..5 {
+            t.device().synchronize()?;
+
             t.inplace_op1(&mut op)?;
             let out = t.add(&a)?;
             let (data, _) = out.storage_and_layout();
